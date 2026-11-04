@@ -29,6 +29,9 @@ jobs:
       - name: Register the checked out tap with Homebrew
         run: brew tap KaranocaVe/tap "$GITHUB_WORKSPACE"
 
+      - name: Trust the tap Formula for this CI run
+        run: brew trust --formula KaranocaVe/tap/new-api
+
       - name: Audit the Formula
         run: brew audit --strict KaranocaVe/tap/new-api
 

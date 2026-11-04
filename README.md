@@ -6,6 +6,7 @@ Apple Silicon macOS tap for [QuantumNous/new-api](https://github.com/QuantumNous
 
 ```sh
 brew tap KaranocaVe/tap
+brew trust --formula KaranocaVe/tap/new-api
 brew install KaranocaVe/tap/new-api
 new-api-init
 brew services start new-api
@@ -14,7 +15,7 @@ open http://localhost:3000
 
 `new-api-init` creates a private configuration file on first use. Starting the service also initializes it when needed. The initial New API account is `root` / `123456`; change that password immediately in the web console.
 
-The Homebrew service runs as your user, starts at login, and is restarted by `launchd` after an unexpected exit. It needs no root privileges, Docker, database daemon, Redis, Node.js, or Electron. Go and Bun are build-only Homebrew dependencies; neither runs the service.
+The Homebrew service runs as your user, starts at login, and is restarted by `launchd` after an unexpected exit. It needs no root privileges, Docker, database daemon, Redis, Node.js, or Electron. Go and Bun are build-only Homebrew dependencies; neither runs the service. The first source build downloads the frontend dependencies and can take several minutes.
 
 ## Network binding
 

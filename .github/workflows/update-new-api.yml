@@ -12,6 +12,8 @@ permissions:
 jobs:
   update:
     runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
       - name: Check out tap
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -71,6 +73,78 @@ jobs:
           ruby -c Formula/new-api.rb
           brew style Formula/new-api.rb
 
+      - name: Stage the candidate update for Homebrew validation
+        if: steps.select.outputs.update_available == 'true'
+        env:
+          VERSION: ${{ steps.select.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B automation/update-new-api
+          git add Formula/new-api.rb
+          git commit -m "new-api: update to $VERSION"
+
+      - name: Register and trust the candidate tap
+        if: steps.select.outputs.update_available == 'true'
+        run: |
+          brew tap KaranocaVe/tap "$GITHUB_WORKSPACE"
+          brew trust --formula KaranocaVe/tap/new-api
+
+      - name: Audit the candidate Formula
+        if: steps.select.outputs.update_available == 'true'
+        run: brew audit --strict KaranocaVe/tap/new-api
+
+      - name: Build and install the candidate from source
+        if: steps.select.outputs.update_available == 'true'
+        run: brew install --build-from-source KaranocaVe/tap/new-api
+
+      - name: Test the candidate executable and architecture
+        if: steps.select.outputs.update_available == 'true'
+        run: |
+          brew test KaranocaVe/tap/new-api
+          binary="$(brew --prefix)/opt/new-api/bin/new-api"
+          file "$binary" | grep -q 'Mach-O'
+          architectures="$(lipo -archs "$binary")"
+          case " $architectures " in
+            *" arm64 "*) ;;
+            *) echo "Expected an arm64 executable; got: $architectures" >&2; exit 1 ;;
+          esac
+
+      - name: Verify the candidate launchd service and SQLite persistence
+        if: steps.select.outputs.update_available == 'true'
+        run: |
+          cleanup() { brew services stop new-api >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          brew services start new-api
+          state="$(brew --prefix)/var/new-api"
+          ready=false
+          for _ in {1..60}; do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          lsof -nP -iTCP:3000 -sTCP:LISTEN | grep -F '127.0.0.1:3000'
+          test "$(stat -f '%Lp' "$state/.env")" = "600"
+          database="$state/data/new-api.db"
+          test -s "$database"
+          before="$(sqlite3 -readonly "$database" 'SELECT COUNT(*) FROM users;')"
+          brew services restart new-api
+          ready=false
+          for _ in {1..60}; do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          after="$(sqlite3 -readonly "$database" 'SELECT COUNT(*) FROM users;')"
+          test "$before" = "$after"
+          brew services list
+
       - name: Open or update the version bump pull request
         if: steps.select.outputs.update_available == 'true'
         env:
@@ -80,11 +154,6 @@ jobs:
           ASSET_SHA256: ${{ steps.select.outputs.asset_sha256 }}
           SOURCE_SHA256: ${{ steps.source.outputs.sha256 }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B automation/update-new-api
-          git add Formula/new-api.rb
-          git commit -m "new-api: update to $VERSION"
           git push --force origin HEAD:automation/update-new-api
           pr_number="$(gh pr list --state open --head automation/update-new-api --json number --jq '.[0].number // empty')"
           body="Tracks upstream $TAG. Verified official macOS arm64 asset SHA-256 $ASSET_SHA256; the Formula builds the patched source archive with SHA-256 $SOURCE_SHA256."

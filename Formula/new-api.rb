@@ -31,9 +31,11 @@ class NewApi < Formula
     system "go", "mod", "download"
     system "go", "build", "-trimpath", "-ldflags", ldflags, "-o", bin/"new-api", "."
 
-    service_script = Pathname(__FILE__).realpath.dirname.parent/"libexec/new-api-service"
+    service_source = Pathname(__FILE__).realpath.dirname.parent/"libexec/new-api-service"
+    service_script = buildpath/"new-api-service"
+    service_script.write service_source.read
+    service_script.chmod 0755
     libexec.install service_script
-    chmod 0755, libexec/"new-api-service"
 
     (bin/"new-api-init").write <<~BASH
       #!/bin/bash
