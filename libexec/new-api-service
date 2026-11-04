@@ -1,0 +1,55 @@
+#!/bin/bash
+set -euo pipefail
+
+: "${NEW_API_HOME:?NEW_API_HOME must be set}"
+
+state_dir="$NEW_API_HOME"
+config_file="$state_dir/.env"
+
+/bin/mkdir -p "$state_dir/data" "$state_dir/logs"
+/bin/chmod 700 "$state_dir" "$state_dir/data" "$state_dir/logs"
+
+if [[ -L "$config_file" ]]; then
+  echo "Refusing to use a symlink as $config_file" >&2
+  exit 1
+elif [[ -e "$config_file" ]]; then
+  if [[ ! -f "$config_file" ]]; then
+    echo "$config_file exists but is not a regular file" >&2
+    exit 1
+  fi
+  /bin/chmod 600 "$config_file"
+else
+  umask 077
+  temporary_file="$(/usr/bin/mktemp "$state_dir/.env.XXXXXX")"
+  trap '/bin/rm -f "$temporary_file"' EXIT
+  secret="$(/usr/bin/openssl rand -hex 32)"
+  /bin/cat > "$temporary_file" <<EOF
+PORT=3000
+BIND_ADDRESS=127.0.0.1
+SQLITE_PATH=$state_dir/data/new-api.db
+SESSION_SECRET=$secret
+EOF
+  /bin/chmod 600 "$temporary_file"
+  if [[ -L "$config_file" ]]; then
+    echo "Refusing to use a symlink as $config_file" >&2
+    exit 1
+  fi
+  /bin/mv -n "$temporary_file" "$config_file"
+  [[ -f "$config_file" && ! -L "$config_file" ]] || exit 1
+  /bin/chmod 600 "$config_file"
+  /bin/rm -f "$temporary_file"
+  trap - EXIT
+fi
+
+if [[ "${1:-}" == "--init-only" ]]; then
+  printf 'Configuration ready: %s\n' "$config_file"
+  exit 0
+fi
+
+if [[ $# -ne 0 || -z "${NEW_API_BINARY:-}" ]]; then
+  echo "Usage: new-api-service [--init-only]" >&2
+  exit 64
+fi
+
+umask 077
+exec "$NEW_API_BINARY" --log-dir "$state_dir/logs"

@@ -1,0 +1,99 @@
+name: Update New API Formula
+
+on:
+  schedule:
+    - cron: "23 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: macos-latest
+    steps:
+      - name: Check out tap
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Select the newest supported upstream release
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api 'repos/QuantumNous/new-api/releases?per_page=100' > "$RUNNER_TEMP/releases.json"
+          ruby scripts/update_formula.rb select "$RUNNER_TEMP/releases.json" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the official macOS arm64 release asset
+        if: steps.select.outputs.update_available == 'true'
+        env:
+          TAG: ${{ steps.select.outputs.tag }}
+          ASSET_NAME: ${{ steps.select.outputs.asset_name }}
+          ASSET_URL: ${{ steps.select.outputs.asset_url }}
+          ASSET_SHA256: ${{ steps.select.outputs.asset_sha256 }}
+        run: |
+          curl --fail --location --retry 3 "$ASSET_URL" -o "$RUNNER_TEMP/$ASSET_NAME"
+          curl --fail --location --retry 3 "https://github.com/QuantumNous/new-api/releases/download/$TAG/checksums-macos.txt" -o "$RUNNER_TEMP/checksums-macos.txt"
+          actual_sha="$(shasum -a 256 "$RUNNER_TEMP/$ASSET_NAME" | awk '{print $1}')"
+          test "$actual_sha" = "$ASSET_SHA256"
+          listed_sha="$(awk -v name="$ASSET_NAME" '$2 == name {print $1}' "$RUNNER_TEMP/checksums-macos.txt")"
+          test "$listed_sha" = "$actual_sha"
+          file "$RUNNER_TEMP/$ASSET_NAME" | grep -q 'Mach-O'
+          architectures="$(lipo -archs "$RUNNER_TEMP/$ASSET_NAME")"
+          case " $architectures " in
+            *" arm64 "*) ;;
+            *) echo "Expected a macOS arm64 asset; got: $architectures" >&2; exit 1 ;;
+          esac
+
+      - name: Hash the pinned source archive
+        if: steps.select.outputs.update_available == 'true'
+        id: source
+        env:
+          SOURCE_URL: ${{ steps.select.outputs.source_url }}
+        run: |
+          curl --fail --location --retry 3 "$SOURCE_URL" -o "$RUNNER_TEMP/new-api-source.tar.gz"
+          tar -tzf "$RUNNER_TEMP/new-api-source.tar.gz" | grep -Eq '/main\.go$'
+          tar -tzf "$RUNNER_TEMP/new-api-source.tar.gz" | grep -Eq '/web/package\.json$'
+          echo "sha256=$(shasum -a 256 "$RUNNER_TEMP/new-api-source.tar.gz" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Update the pinned Formula
+        if: steps.select.outputs.update_available == 'true'
+        env:
+          VERSION: ${{ steps.select.outputs.version }}
+          SOURCE_SHA256: ${{ steps.source.outputs.sha256 }}
+        run: ruby scripts/update_formula.rb update "$VERSION" "$SOURCE_SHA256"
+
+      - name: Validate Formula syntax and style
+        if: steps.select.outputs.update_available == 'true'
+        run: |
+          ruby -c Formula/new-api.rb
+          brew style Formula/new-api.rb
+
+      - name: Open or update the version bump pull request
+        if: steps.select.outputs.update_available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.select.outputs.version }}
+          TAG: ${{ steps.select.outputs.tag }}
+          ASSET_SHA256: ${{ steps.select.outputs.asset_sha256 }}
+          SOURCE_SHA256: ${{ steps.source.outputs.sha256 }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B automation/update-new-api
+          git add Formula/new-api.rb
+          git commit -m "new-api: update to $VERSION"
+          git push --force origin HEAD:automation/update-new-api
+          pr_number="$(gh pr list --state open --head automation/update-new-api --json number --jq '.[0].number // empty')"
+          body="Tracks upstream $TAG. Verified official macOS arm64 asset SHA-256 $ASSET_SHA256; the Formula builds the patched source archive with SHA-256 $SOURCE_SHA256."
+          if [[ -n "$pr_number" ]]; then
+            gh pr edit "$pr_number" --title "new-api: update to $VERSION" --body "$body"
+          else
+            gh pr create --base main --head automation/update-new-api --title "new-api: update to $VERSION" --body "$body"
+          fi
+
+      - name: Report no update
+        if: steps.select.outputs.update_available != 'true'
+        run: echo "The newest supported upstream version is already pinned."
