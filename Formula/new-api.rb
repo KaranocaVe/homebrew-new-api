@@ -78,7 +78,7 @@ index 0000000..0000000 100644
 +	"net"
  	"net/http"
  	"os"
-@@ -60,7 +60,12 @@ func main() {
+@@ -60,6 +60,10 @@ func main() {
  	if err != nil {
  		common.FatalLog(common.LogText("failed to initialize resources: %s", err.Error()))
  		return
@@ -89,14 +89,14 @@ index 0000000..0000000 100644
 +	}
  
  	common.SysLog(common.LogText("New API %s started", common.Version))
-@@ -167,7 +172,7 @@ func main() {
+@@ -167,5 +171,5 @@ func main() {
  	if os.Getenv("ENABLE_PPROF") == "true" {
  		gopool.Go(func() {
 -			log.Println(http.ListenAndServe("0.0.0.0:8005", nil))
 +			log.Println(http.ListenAndServe(net.JoinHostPort(bindAddress, "8005"), nil))
  		})
  		go common.Monitor()
-@@ -212,6 +217,6 @@ func main() {
+@@ -212,6 +216,6 @@ func main() {
  	}
  
  	srv := &http.Server{
