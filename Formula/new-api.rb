@@ -2,7 +2,6 @@ class NewApi < Formula
   desc "Self-hosted AI API gateway with an embedded web console"
   homepage "https://github.com/QuantumNous/new-api"
   url "https://github.com/QuantumNous/new-api/archive/refs/tags/v1.0.0-rc.47.tar.gz"
-  version "1.0.0-rc.47"
   sha256 "6e718051ca5c753005be9378425517523c49fe4d6345b572efa822a24dfea391"
   license "AGPL-3.0-only"
 

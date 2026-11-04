@@ -6,8 +6,8 @@ SUPPORTED_STABLE_TAG = /\Av\d+\.\d+\.\d+\z/
 SUPPORTED_RC_TAG = /\Av\d+\.\d+\.\d+-rc\.\d+\z/
 
 def formula_version
-  match = File.read(FORMULA_PATH).match(/^  version "([^"]+)"$/)
-  abort "Could not read the pinned Formula version" unless match
+  match = File.read(FORMULA_PATH).match(%r{^  url "https://github\.com/QuantumNous/new-api/archive/refs/tags/v([^\"]+)\.tar\.gz"$})
+  abort "Could not read the pinned version from the source URL" unless match
 
   match[1]
 end
@@ -70,7 +70,6 @@ def update_formula(version, source_sha256)
   contents = File.read(FORMULA_PATH)
   replacements = {
     /^  url "https:\/\/github\.com\/QuantumNous\/new-api\/archive\/refs\/tags\/v[^"]+\.tar\.gz"$/ => "  url \"https://github.com/QuantumNous/new-api/archive/refs/tags/v#{version}.tar.gz\"",
-    /^  version "[^"]+"$/ => "  version \"#{version}\"",
     /^  sha256 "[a-f0-9]{64}"$/ => "  sha256 \"#{source_sha256}\"",
   }
 
