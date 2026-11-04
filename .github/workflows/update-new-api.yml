@@ -19,6 +19,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Select the newest supported upstream release
         id: select
@@ -160,6 +161,7 @@ jobs:
           ASSET_SHA256: ${{ steps.select.outputs.asset_sha256 }}
           SOURCE_SHA256: ${{ steps.source.outputs.sha256 }}
         run: |
+          gh auth setup-git
           git push --force origin HEAD:automation/update-new-api
           pr_number="$(gh pr list --state open --head automation/update-new-api --json number --jq '.[0].number // empty')"
           body="Tracks upstream $TAG. Verified official macOS arm64 asset SHA-256 $ASSET_SHA256; the Formula builds the patched source archive with SHA-256 $SOURCE_SHA256."
@@ -171,4 +173,11 @@ jobs:
 
       - name: Report no update
         if: steps.select.outputs.update_available != 'true'
-        run: echo "The newest supported upstream version is already pinned."
+        env:
+          SELECTED_TAG: ${{ steps.select.outputs.selected_tag }}
+          SKIPPED_TAGS: ${{ steps.select.outputs.skipped_without_macos }}
+        run: |
+          echo "No newer verified macOS release is available; current Formula is already at the highest compatible release ($SELECTED_TAG)."
+          if [[ -n "$SKIPPED_TAGS" ]]; then
+            echo "Skipped supported releases without an exact macOS asset: $SKIPPED_TAGS"
+          fi

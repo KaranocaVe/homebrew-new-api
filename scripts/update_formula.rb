@@ -35,25 +35,41 @@ def expected_macos_asset(release)
   [name, asset, digest.delete_prefix("sha256:")]
 end
 
+def has_macos_asset?(release)
+  expected_name = "new-api-macos-#{release.fetch('tag_name')}"
+  release.fetch("assets", []).any? { |asset| asset["name"] == expected_name }
+end
+
 def select_release(releases)
   current = Gem::Version.new(formula_version)
-  candidates = releases.select { |release| supported_release?(release) }
-  abort "No supported stable or RC releases found" if candidates.empty?
+  supported = releases.select { |release| supported_release?(release) }
+  abort "No supported stable or RC releases found" if supported.empty?
+
+  newer_without_macos = supported.select do |candidate|
+    version = Gem::Version.new(candidate.fetch("tag_name").delete_prefix("v"))
+    version > current && !has_macos_asset?(candidate)
+  end
+  candidates = supported.select { |candidate| has_macos_asset?(candidate) }
+  abort "No supported stable or RC releases with a macOS asset found" if candidates.empty?
 
   release = candidates.max_by { |candidate| Gem::Version.new(candidate.fetch("tag_name").delete_prefix("v")) }
   tag = release.fetch("tag_name")
   name, asset, digest = expected_macos_asset(release)
   version = tag.delete_prefix("v")
+  skipped_tags = newer_without_macos.map { |candidate| candidate.fetch("tag_name") }.sort.join(",")
 
   if Gem::Version.new(version) <= current
     puts "update_available=false"
     puts "current_version=#{current}"
+    puts "selected_tag=#{tag}"
+    puts "skipped_without_macos=#{skipped_tags}"
     return
   end
 
   puts "update_available=true"
   puts "tag=#{tag}"
   puts "version=#{version}"
+  puts "skipped_without_macos=#{skipped_tags}"
   puts "asset_name=#{name}"
   puts "asset_url=#{asset.fetch('browser_download_url')}"
   puts "asset_sha256=#{digest}"
