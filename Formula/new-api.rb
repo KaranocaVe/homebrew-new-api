@@ -23,7 +23,7 @@ class NewApi < Formula
       ENV["CI"] = ""
       ENV["DISABLE_ESLINT_PLUGIN"] = "true"
       ENV["VITE_REACT_APP_VERSION"] = version.to_s
-      system "bun", "install", "--frozen-lockfile"
+      system "bun", "install", "--frozen-lockfile", "--network-concurrency=16"
       system "bun", "run", "build"
     end
 
