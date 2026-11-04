@@ -70,7 +70,13 @@ jobs:
           test "$(stat -f '%Lp' "$state/.env")" = "600"
           database="$state/data/new-api.db"
           test -s "$database"
+          test "$(sqlite3 -readonly "$database" 'PRAGMA journal_mode;')" = "wal"
+          curl --fail --silent --show-error http://127.0.0.1:3000/api/setup | jq -e '.data.status == false and .data.database_type == "sqlite" and .data.root_init == false'
+          password="$(openssl rand -hex 24)"
+          payload="$(jq -n --arg password "$password" '{username:"brewtest",password:$password,confirmPassword:$password,SelfUseModeEnabled:true,DemoSiteEnabled:false}')"
+          curl --fail --silent --show-error -H 'Content-Type: application/json' -d "$payload" http://127.0.0.1:3000/api/setup | jq -e '.success == true'
           before="$(sqlite3 -readonly "$database" 'SELECT COUNT(*) FROM users;')"
+          test "$before" = "1"
           brew services restart new-api
           ready=false
           for _ in {1..60}; do

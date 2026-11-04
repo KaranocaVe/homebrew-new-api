@@ -26,7 +26,7 @@ else
   /bin/cat > "$temporary_file" <<EOF
 PORT=3000
 BIND_ADDRESS=127.0.0.1
-SQLITE_PATH=$state_dir/data/new-api.db
+SQLITE_PATH=$state_dir/data/new-api.db?_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_txlock=immediate
 SESSION_SECRET=$secret
 EOF
   /bin/chmod 600 "$temporary_file"

@@ -13,7 +13,7 @@ brew services start new-api
 open http://localhost:3000
 ```
 
-`new-api-init` creates a private configuration file on first use. Starting the service also initializes it when needed. The initial New API account is `root` / `123456`; change that password immediately in the web console.
+`new-api-init` creates a private configuration file on first use. Starting the service also initializes it when needed. On the first visit, New API opens its `/setup` wizard; create the administrator username and a strong password there. A fresh SQLite database has no default account or shared password.
 
 The Homebrew service runs as your user, starts at login, and is restarted by `launchd` after an unexpected exit. It needs no root privileges, Docker, database daemon, Redis, Node.js, or Electron. Go and Bun are build-only Homebrew dependencies; neither runs the service. The first source build downloads the frontend dependencies and can take several minutes.
 
@@ -44,7 +44,7 @@ $(brew --prefix)/var/new-api/
     └── oneapi-*.log     # New API application logs
 ```
 
-The `.env` is loaded from the service working directory. The Formula sets `SQLITE_PATH` to the stable `data/new-api.db` path explicitly; the upstream fallback name is `one-api.db`. SQLite WAL mode is enabled by upstream. `SQL_DSN` and `REDIS_CONN_STRING` remain unset, which selects SQLite and disables Redis. The embedded frontend needs no separate web server. The application may use the OS temporary directory for transient request/body data; it is not the database backup location.
+The `.env` is loaded from the service working directory. The Formula sets `SQLITE_PATH` to the stable `data/new-api.db` path and includes upstream's `busy_timeout(30000)`, `journal_mode(WAL)`, and `txlock=immediate` SQLite options; the upstream fallback filename is `one-api.db`. `SQL_DSN` and `REDIS_CONN_STRING` remain unset, which selects SQLite and disables Redis. The embedded frontend needs no separate web server. The application may use the OS temporary directory for transient request/body data; it is not the database backup location.
 
 ## Upgrade and database changes
 
