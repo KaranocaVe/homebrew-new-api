@@ -5,9 +5,9 @@ Apple Silicon macOS tap for [QuantumNous/new-api](https://github.com/QuantumNous
 ## Install and start
 
 ```sh
-brew tap KaranocaVe/tap
-brew trust --formula KaranocaVe/tap/new-api
-brew install KaranocaVe/tap/new-api
+brew tap KaranocaVe/new-api
+brew trust --formula KaranocaVe/new-api/new-api
+brew install KaranocaVe/new-api/new-api
 new-api-init
 brew services start new-api
 open http://localhost:3000

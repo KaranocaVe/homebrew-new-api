@@ -27,19 +27,19 @@ jobs:
           brew style Formula/new-api.rb
 
       - name: Register the checked out tap with Homebrew
-        run: brew tap KaranocaVe/tap "$GITHUB_WORKSPACE"
+        run: brew tap KaranocaVe/new-api "$GITHUB_WORKSPACE"
 
       - name: Trust the tap Formula for this CI run
-        run: brew trust --formula KaranocaVe/tap/new-api
+        run: brew trust --formula KaranocaVe/new-api/new-api
 
       - name: Audit the Formula
-        run: brew audit --strict KaranocaVe/tap/new-api
+        run: brew audit --strict KaranocaVe/new-api/new-api
 
       - name: Build and install Formula from source
-        run: brew install --build-from-source KaranocaVe/tap/new-api
+        run: brew install --build-from-source KaranocaVe/new-api/new-api
 
       - name: Test the installed executable
-        run: brew test KaranocaVe/tap/new-api
+        run: brew test KaranocaVe/new-api/new-api
 
       - name: Verify Apple Silicon executable
         run: |

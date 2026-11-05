@@ -88,21 +88,21 @@ jobs:
       - name: Register and trust the candidate tap
         if: steps.select.outputs.update_available == 'true'
         run: |
-          brew tap KaranocaVe/tap "$GITHUB_WORKSPACE"
-          brew trust --formula KaranocaVe/tap/new-api
+          brew tap KaranocaVe/new-api "$GITHUB_WORKSPACE"
+          brew trust --formula KaranocaVe/new-api/new-api
 
       - name: Audit the candidate Formula
         if: steps.select.outputs.update_available == 'true'
-        run: brew audit --strict KaranocaVe/tap/new-api
+        run: brew audit --strict KaranocaVe/new-api/new-api
 
       - name: Build and install the candidate from source
         if: steps.select.outputs.update_available == 'true'
-        run: brew install --build-from-source KaranocaVe/tap/new-api
+        run: brew install --build-from-source KaranocaVe/new-api/new-api
 
       - name: Test the candidate executable and architecture
         if: steps.select.outputs.update_available == 'true'
         run: |
-          brew test KaranocaVe/tap/new-api
+          brew test KaranocaVe/new-api/new-api
           binary="$(brew --prefix)/opt/new-api/bin/new-api"
           file "$binary" | grep -q 'Mach-O'
           architectures="$(lipo -archs "$binary")"
